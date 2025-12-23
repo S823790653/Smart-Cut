@@ -1,0 +1,2931 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能图片切割器 - by飞扬班班</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e1e5eb;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            color: #64748b;
+            font-size: 1rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        /* 上传区域 */
+        .upload-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2);
+        }
+        
+        .upload-area {
+            border: 3px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 40px 20px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            background-color: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .upload-area:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .upload-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* 左侧工作区 */
+        .workspace {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        }
+        
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: linear-gradient(45deg, #f5f7fa 25%, transparent 25%), 
+                        linear-gradient(-45deg, #f5f7fa 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #f5f7fa 75%), 
+                        linear-gradient(-45deg, transparent 75%, #f5f7fa 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        #previewCanvas {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            cursor: crosshair;
+        }
+        
+        .grid-line {
+            position: absolute;
+            background-color: rgba(239, 68, 68, 0.7);
+            z-index: 10;
+            cursor: move;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .grid-line.vertical {
+            width: 4px; /* 从8px改为4px */
+            height: 100%;
+            transform: translateX(-50%);
+            cursor: ew-resize;
+        }
+        
+        .grid-line.horizontal {
+            height: 4px; /* 从8px改为4px */
+            width: 100%;
+            transform: translateY(-50%);
+            cursor: ns-resize;
+        }
+        
+        .grid-line:hover {
+            background-color: rgba(239, 68, 68, 0.9);
+            z-index: 20;
+        }
+        
+        .grid-line.dragging {
+            background-color: #3b82f6;
+            z-index: 30;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #3b82f6;
+        }
+        
+        .grid-line-handle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #3b82f6;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #3b82f6;
+            font-weight: bold;
+        }
+        
+        /* 切片预览区域 */
+        .slices-preview-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            margin-top: 20px;
+            max-height: 500px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f1f5f9;
+        }
+        
+        .preview-header h3 {
+            color: #1e293b;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .slices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+            overflow-y: auto;
+            flex: 1;
+            padding: 5px;
+        }
+        
+        .slice-card {
+            background: #f8fafc;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 1;
+            transition: all 0.3s ease;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .slice-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            border-color: #3b82f6;
+        }
+        
+        .slice-card.selected {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+        
+        .slice-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        
+        .slice-badge {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        /* 右侧控制面板 */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .panel-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f1f5f9;
+        }
+        
+        .section-header h3 {
+            color: #1e293b;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .badge {
+            background: #3b82f6;
+            color: white;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        
+        /* 预设弹窗按钮 */
+        .preset-button {
+            width: 100%;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .preset-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+        }
+        
+        .preset-icon {
+            font-size: 1.2rem;
+        }
+        
+        /* 行配置区域 */
+        .rows-config-container {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding-right: 10px;
+        }
+        
+        .row-config-item {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
+        }
+        
+        .row-config-item:hover {
+            border-color: #94a3b8;
+        }
+        
+        .row-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .row-title {
+            font-weight: 600;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .row-number {
+            background: #3b82f6;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .row-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .row-btn {
+            padding: 6px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .row-btn:hover {
+            background: #f1f5f9;
+        }
+        
+        .row-btn.delete {
+            color: #ef4444;
+            border-color: #fecaca;
+        }
+        
+        .row-btn.delete:hover {
+            background: #fef2f2;
+        }
+        
+        /* 行内容配置 */
+        .row-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .control-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        
+        .number-input {
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        
+        .number-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* 滑块控制 */
+        .slider-container {
+            margin: 15px 0;
+        }
+        
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .slider-label {
+            color: #475569;
+            font-size: 0.9rem;
+        }
+        
+        .slider-value {
+            color: #3b82f6;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .custom-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            border: 3px solid #3b82f6;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+        }
+        
+        .custom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        
+        /* 按钮样式 */
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 25px;
+        }
+        
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-outline {
+            background: white;
+            color: #475569;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .btn-outline:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+        
+        .btn-icon {
+            font-size: 1.2rem;
+        }
+        
+        /* 工具按钮组 */
+        .tool-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .tool-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        
+        .tool-btn:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+        
+        .tool-icon {
+            font-size: 18px;
+        }
+        
+        /* 信息面板 */
+        .info-panel {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        
+        .info-value {
+            color: #1e293b;
+            font-weight: 600;
+        }
+        
+        /* 加载状态 */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+        
+        .loader-text {
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+        
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .empty-text {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: #64748b;
+        }
+        
+        /* 提示框 */
+        .hint-box {
+            background: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #475569;
+        }
+        
+        .hint-title {
+            color: #1e40af;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        /* 预设弹窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: translateY(30px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .modal-header {
+            padding: 25px 25px 15px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            color: #1e293b;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #64748b;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .modal-close:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+        
+        .modal-body {
+            padding: 25px;
+        }
+        
+        /* 预设网格 */
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .preset-btn {
+            padding: 20px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            background: white;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .preset-btn:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(59, 130, 246, 0.1);
+        }
+        
+        .preset-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        .preset-icon {
+            font-size: 28px;
+            line-height: 1.2;
+        }
+        
+        /* 响应式优化 */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .canvas-container {
+                height: 350px;
+            }
+            
+            .preset-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .row-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .slices-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .canvas-container {
+                height: 300px;
+            }
+            
+            .slices-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .tool-buttons {
+                flex-wrap: wrap;
+            }
+            
+            .row-controls {
+                flex-wrap: wrap;
+            }
+            
+            .preset-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* 优化网格线标签 */
+        .line-label {
+            position: absolute;
+            background: #1e293b;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 30;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .grid-line:hover .line-label {
+            opacity: 1;
+        }
+        
+        .grid-line.horizontal .line-label {
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .grid-line.vertical .line-label {
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 10px;
+        }
+        
+        /* 分割线指示器 */
+        .line-indicator {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #3b82f6;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
+        
+        .line-indicator.active {
+            display: block;
+        }
+        
+        /* 当前选中切片信息 */
+        .selected-slice-info {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid #f59e0b;
+        }
+        
+        .selected-slice-info h4 {
+            color: #92400e;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .slice-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.85rem;
+        }
+        
+        .slice-detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .slice-detail-label {
+            color: #92400e;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .slice-detail-value {
+            color: #78350f;
+            font-weight: 600;
+        }
+        
+        /* 新手引导样式 */
+        .tutorial-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .tutorial-step {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .step-number {
+            background: #3b82f6;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-content strong {
+            display: block;
+            color: #1e293b;
+            margin-bottom: 5px;
+            font-size: 1rem;
+        }
+        
+        .step-content p {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin: 0;
+            line-height: 1.5;
+        }
+        
+        /* 帮助按钮 */
+        .help-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .help-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        /* 双按钮布局 */
+        .dual-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .dual-buttons .btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 0.95rem;
+        }
+        
+        /* 重命名按钮样式 - 改为漂亮的紫色渐变 */
+        .btn-rename {
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            color: white;
+        }
+        
+        .btn-rename:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>智能图片切割器 - by飞扬班班</h1>
+        <p class="subtitle">自由设置每行列数，轻松拖拽切割线，实时预览切片效果</p>
+    </div>
+    
+    <div class="app-container">
+        <!-- 上传区域 -->
+        <div class="upload-section">
+            <h2 style="color: white; margin-bottom: 20px;">上传图片开始制作</h2>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <p style="font-size: 1.1rem; margin-bottom: 8px;">拖放图片到这里，或点击选择</p>
+                <p style="font-size: 0.9rem; opacity: 0.9;">支持 JPG、PNG、WebP，最大 10MB</p>
+                <input type="file" id="imageInput" class="file-input" accept="image/*">
+            </div>
+            <p id="fileName" style="margin-top: 15px; color: rgba(255,255,255,0.9);"></p>
+        </div>
+        
+        <div class="main-content">
+            <!-- 左侧工作区 -->
+            <div class="workspace">
+                <div class="section-header">
+                    <h3>图片切割编辑区</h3>
+                    <div class="badge" id="sliceCountBadge">0 个切片</div>
+                </div>
+                
+                <div class="tool-buttons" id="toolButtons" style="display: none;">
+                    <button class="tool-btn" id="addRowBtn" title="添加行">
+                        <span class="tool-icon">➕</span>
+                        添加行
+                    </button>
+                    <button class="tool-btn" id="uniformGridBtn" title="均匀网格">
+                        <span class="tool-icon">⏹️</span>
+                        均匀网格
+                    </button>
+                    <button class="tool-btn" id="clearLinesBtn" title="清除所有线">
+                        <span class="tool-icon">🗑️</span>
+                        清除所有线
+                    </button>
+                    <button class="tool-btn" id="resetAllBtn" title="重置所有">
+                        <span class="tool-icon">🔄</span>
+                        重置所有
+                    </button>
+                </div>
+                
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="previewCanvas"></canvas>
+                    <!-- 网格线将通过JS动态添加 -->
+                    <div class="line-indicator" id="lineIndicator"></div>
+                </div>
+                
+                <div class="info-panel" id="imageInfo" style="display: none;">
+                    <div class="info-row">
+                        <span class="info-label">图片尺寸</span>
+                        <span class="info-value" id="imageDimensions">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">网格布局</span>
+                        <span class="info-value" id="gridLayout">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">切片数量</span>
+                        <span class="info-value" id="sliceCount">0</span>
+                    </div>
+                </div>
+                
+                <!-- 切片实时预览 -->
+                <div class="slices-preview-section" id="slicesPreview" style="display: none;">
+                    <div class="preview-header">
+                        <h3>切片实时预览</h3>
+                        <div class="badge" id="previewCount">0</div>
+                    </div>
+                    
+                    <div class="slices-grid" id="slicesGrid">
+                        <div class="empty-state">
+                            <div class="empty-icon">🖼️</div>
+                            <p class="empty-text">调整切割布局后，这里将显示切片预览</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧控制面板 -->
+            <div class="control-panel">
+                <!-- 预设模板 -->
+                <div class="panel-section">
+                    <div class="section-header">
+                        <h3>快速预设</h3>
+                        <span class="badge">一键应用</span>
+                    </div>
+                    
+                    <!-- 预设弹窗按钮 -->
+                    <button class="preset-button" id="openPresetModalBtn">
+                        <span class="btn-icon">🎨</span> 选择预设模板
+                    </button>
+                </div>
+                
+                <!-- 行配置 -->
+                <div class="panel-section">
+                    <div class="section-header">
+                        <h3>行配置（支持异形切割）</h3>
+                        <button class="row-btn" id="addRowConfigBtn">+ 添加行</button>
+                    </div>
+                    
+                    <div class="rows-config-container" id="rowsConfigContainer">
+                        <!-- 行配置将通过JS动态添加 -->
+                        <div class="empty-state" style="padding: 20px 0;">
+                            <div class="empty-icon">📐</div>
+                            <p class="empty-text">点击"添加行"开始配置异形切割</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 当前选中切片信息 -->
+                <div class="panel-section" id="selectedSlicePanel" style="display: none;">
+                    <div class="section-header">
+                        <h3>当前选中切片</h3>
+                    </div>
+                    
+                    <div id="selectedSliceInfo">
+                        <div class="empty-state" style="padding: 10px 0;">
+                            <div class="empty-icon">🎯</div>
+                            <p class="empty-text">点击左侧切片预览中的切片进行选择</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 操作按钮 - 移除重置所有设置按钮 -->
+                <div class="panel-section">
+                    <div class="section-header">
+                        <h3>导出切片</h3>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="downloadAllBtn">
+                            <span class="btn-icon">📦</span> 打包下载全部
+                        </button>
+                    </div>
+                    
+                    <div class="hint-box">
+                        <div class="hint-title">操作指南</div>
+                        <ul style="padding-left: 20px; margin: 0;">
+                            <li><strong>拖拽分割线</strong>：直接拖动红色线条调整位置</li>
+                            <li><strong>双击删除</strong>：双击分割线可删除该线</li>
+                            <li><strong>异形切割</strong>：为每行设置不同列数</li>
+                            <li><strong>选中切片</strong>：点击切片预览中的切片可选中</li>
+                            <li><strong>下载切片</strong>：选中切片后可在上方面板下载</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 预设弹窗 -->
+    <div class="modal-overlay" id="presetModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择预设模板</h3>
+                <button class="modal-close" id="closePresetModalBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="preset-grid" id="presetGrid">
+                    <button class="preset-btn" data-preset="3x3">
+                        <span class="preset-icon">🟦🟦🟦<br>🟦🟦🟦<br>🟦🟦🟦</span>
+                        九宫格 (3×3)
+                    </button>
+                    <button class="preset-btn" data-preset="2x2">
+                        <span class="preset-icon">🟦🟦<br>🟦🟦</span>
+                        四宫格 (2×2)
+                    </button>
+                    <button class="preset-btn" data-preset="3-4-3">
+                        <span class="preset-icon">🟦🟦🟦<br>🟦🟦🟦🟦<br>🟦🟦🟦</span>
+                        上3中4下3
+                    </button>
+                    <button class="preset-btn" data-preset="1-2-3">
+                        <span class="preset-icon">🟦<br>🟦🟦<br>🟦🟦🟦</span>
+                        上1中2下3
+                    </button>
+                    <button class="preset-btn" data-preset="4x3">
+                        <span class="preset-icon">🟦🟦🟦🟦<br>🟦🟦🟦🟦<br>🟦🟦🟦🟦</span>
+                        4×3网格
+                    </button>
+                    <button class="preset-btn" data-preset="2-3-4">
+                        <span class="preset-icon">🟦🟦<br>🟦🟦🟦<br>🟦🟦🟦🟦</span>
+                        上2中3下4
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 新手引导弹窗 -->
+    <div class="modal-overlay" id="tutorialModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>🎯 新手引导 - 智能图片切割器使用指南</h3>
+                <button class="modal-close" id="closeTutorialModalBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #3b82f6; margin-bottom: 15px;">快速开始指南</h4>
+                    <div class="tutorial-steps">
+                        <div class="tutorial-step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <strong>上传图片</strong>
+                                <p>点击上传区域或拖放图片到指定区域，支持 JPG、PNG、WebP 格式，最大 10MB。</p>
+                            </div>
+                        </div>
+                        <div class="tutorial-step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <strong>选择预设模板</strong>
+                                <p>使用右侧"快速预设"面板选择预设模板，或使用"行配置"自定义异形切割。</p>
+                            </div>
+                        </div>
+                        <div class="tutorial-step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <strong>调整切割线</strong>
+                                <p>拖拽红色分割线调整位置，双击删除分割线。每行可以设置不同的列数。</p>
+                            </div>
+                        </div>
+                        <div class="tutorial-step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <strong>预览和下载</strong>
+                                <p>左侧预览区域实时显示切割效果，选中切片后可以单独下载或重命名下载。</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="hint-box" style="margin-top: 20px;">
+                        <div class="hint-title">💡 高级技巧</div>
+                        <ul style="padding-left: 20px; margin: 10px 0;">
+                            <li><strong>异形切割</strong>：每行可以设置不同的列数，实现不规则网格</li>
+                            <li><strong>列宽调整</strong>：在行配置中拖动滑块可以调整每列的宽度比例</li>
+                            <li><strong>切片重命名</strong>：选中切片后可以自定义文件名再下载</li>
+                            <li><strong>快捷键</strong>：ESC 取消拖拽，双击删除分割线</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <label style="display: flex; align-items: center; gap: 5px; color: #64748b; font-size: 0.9rem;">
+                        <input type="checkbox" id="dontShowAgain"> 不再显示此引导
+                    </label>
+                    <button class="btn btn-primary" id="startUsingBtn" style="margin-left: auto;">开始使用</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 重命名弹窗 -->
+    <div class="modal-overlay" id="renameModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>✏️ 重命名切片</h3>
+                <button class="modal-close" id="closeRenameModalBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="control-group" style="margin-bottom: 20px;">
+                    <label class="control-label" for="renameInput">新文件名</label>
+                    <input type="text" id="renameInput" class="number-input" placeholder="输入文件名（无需扩展名）" style="padding: 12px;">
+                    <p style="font-size: 0.85rem; color: #64748b; margin-top: 5px;">
+                        建议格式：切片_行_列 或 自定义名称。下载的文件将自动添加 .png 扩展名。
+                    </p>
+                </div>
+                
+                <div class="action-buttons" style="margin-top: 25px;">
+                    <button class="btn btn-outline" id="cancelRenameBtn">取消</button>
+                    <button class="btn btn-primary" id="confirmRenameBtn">确认并下载</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 加载遮罩 -->
+    <div class="loading" id="loading">
+        <div class="loader"></div>
+        <div class="loader-text">正在处理图片...</div>
+    </div>
+
+    <!-- 帮助按钮 -->
+    <button class="help-button" id="helpButton" title="打开新手引导">?</button>
+
+    <!-- 引入JSZip库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- 引入FileSaver.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <script>
+        // 全局变量
+        let originalImage = null;
+        let canvas, ctx;
+        let gridLines = [];
+        let isDragging = false;
+        let activeLine = null;
+        let dragStartPos = { x: 0, y: 0 };
+        let selectedSlice = null;
+        let lineIndicator = null;
+        
+        // 行配置数据
+        let rowsConfig = [];
+        
+        // DOM元素
+        const elements = {
+            imageInput: document.getElementById('imageInput'),
+            uploadArea: document.getElementById('uploadArea'),
+            fileName: document.getElementById('fileName'),
+            previewCanvas: document.getElementById('previewCanvas'),
+            canvasContainer: document.getElementById('canvasContainer'),
+            slicesGrid: document.getElementById('slicesGrid'),
+            downloadAllBtn: document.getElementById('downloadAllBtn'),
+            loading: document.getElementById('loading'),
+            rowsConfigContainer: document.getElementById('rowsConfigContainer'),
+            addRowConfigBtn: document.getElementById('addRowConfigBtn'),
+            slicesPreview: document.getElementById('slicesPreview'),
+            toolButtons: document.getElementById('toolButtons'),
+            imageInfo: document.getElementById('imageInfo'),
+            sliceCountBadge: document.getElementById('sliceCountBadge'),
+            previewCount: document.getElementById('previewCount'),
+            gridLayout: document.getElementById('gridLayout'),
+            imageDimensions: document.getElementById('imageDimensions'),
+            sliceCount: document.getElementById('sliceCount'),
+            addRowBtn: document.getElementById('addRowBtn'),
+            uniformGridBtn: document.getElementById('uniformGridBtn'),
+            clearLinesBtn: document.getElementById('clearLinesBtn'),
+            resetAllBtn: document.getElementById('resetAllBtn'),
+            lineIndicator: document.getElementById('lineIndicator'),
+            selectedSlicePanel: document.getElementById('selectedSlicePanel'),
+            selectedSliceInfo: document.getElementById('selectedSliceInfo'),
+            presetModal: document.getElementById('presetModal'),
+            openPresetModalBtn: document.getElementById('openPresetModalBtn'),
+            closePresetModalBtn: document.getElementById('closePresetModalBtn'),
+            presetGrid: document.getElementById('presetGrid'),
+            tutorialModal: document.getElementById('tutorialModal'),
+            closeTutorialModalBtn: document.getElementById('closeTutorialModalBtn'),
+            dontShowAgain: document.getElementById('dontShowAgain'),
+            startUsingBtn: document.getElementById('startUsingBtn'),
+            helpButton: document.getElementById('helpButton'),
+            renameModal: document.getElementById('renameModal'),
+            renameInput: document.getElementById('renameInput'),
+            closeRenameModalBtn: document.getElementById('closeRenameModalBtn'),
+            cancelRenameBtn: document.getElementById('cancelRenameBtn'),
+            confirmRenameBtn: document.getElementById('confirmRenameBtn')
+        };
+        
+        // 当前要重命名的切片
+        let sliceToRename = null;
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            canvas = elements.previewCanvas;
+            ctx = canvas.getContext('2d');
+            lineIndicator = elements.lineIndicator;
+            
+            setupEventListeners();
+            setupPresetButtons();
+            
+            // 初始化默认配置（3行，每行3列）
+            initializeDefaultConfig();
+            updateRowsConfigUI();
+            
+            // 初始化新手引导
+            initTutorial();
+        });
+        
+        // 初始化默认配置
+        function initializeDefaultConfig() {
+            rowsConfig = [
+                { id: 1, cols: 3, heightPercent: 33.33, colWidths: [33.33, 33.33, 33.34] },
+                { id: 2, cols: 3, heightPercent: 33.33, colWidths: [33.33, 33.33, 33.34] },
+                { id: 3, cols: 3, heightPercent: 33.34, colWidths: [33.33, 33.33, 33.34] }
+            ];
+        }
+        
+        // 初始化新手引导
+        function initTutorial() {
+            // 检查是否已经显示过引导
+            const hasShownTutorial = localStorage.getItem('hasShownTutorial');
+            
+            // 如果不是第一次访问，不自动显示引导
+            // 可以通过帮助按钮手动打开
+            if (!hasShownTutorial) {
+                // 等待页面加载完成
+                setTimeout(() => {
+                    openTutorialModal();
+                }, 1000);
+            }
+            
+            // 设置事件监听
+            setupTutorialEvents();
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 上传区域
+            elements.uploadArea.addEventListener('click', () => elements.imageInput.click());
+            
+            elements.uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                elements.uploadArea.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+            });
+            
+            elements.uploadArea.addEventListener('dragleave', () => {
+                elements.uploadArea.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            });
+            
+            elements.uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                elements.uploadArea.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                
+                if (e.dataTransfer.files.length) {
+                    elements.imageInput.files = e.dataTransfer.files;
+                    handleImageUpload(e.dataTransfer.files[0]);
+                }
+            });
+            
+            elements.imageInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleImageUpload(e.target.files[0]);
+                }
+            });
+            
+            // 预设弹窗按钮
+            elements.openPresetModalBtn.addEventListener('click', openPresetModal);
+            elements.closePresetModalBtn.addEventListener('click', closePresetModal);
+            
+            // 点击弹窗外部关闭弹窗
+            elements.presetModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closePresetModal();
+                }
+            });
+            
+            // ESC键关闭弹窗
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && elements.presetModal.style.display !== 'none') {
+                    closePresetModal();
+                }
+            });
+            
+            // 添加行配置按钮 - 修复这里，添加行后重新绘制网格
+            elements.addRowConfigBtn.addEventListener('click', function() {
+                addRowConfig();
+                // 添加行后重新绘制网格和更新预览
+                if (originalImage) {
+                    createGridLines();
+                    drawImageWithGrid();
+                    updateSlicesPreview();
+                }
+            });
+            
+            // 工具按钮
+            elements.addRowBtn.addEventListener('click', function() {
+                addRowConfig();
+                // 添加行后重新绘制网格和更新预览
+                if (originalImage) {
+                    createGridLines();
+                    drawImageWithGrid();
+                    updateSlicesPreview();
+                }
+            });
+            
+            elements.uniformGridBtn.addEventListener('click', applyUniformGrid);
+            elements.clearLinesBtn.addEventListener('click', clearAllLines);
+            elements.resetAllBtn.addEventListener('click', resetAll);
+            
+            // 操作按钮 - 移除重置按钮
+            elements.downloadAllBtn.addEventListener('click', downloadAllSlices);
+            
+            // 鼠标事件 - 简化拖拽逻辑
+            document.addEventListener('mousedown', handleMouseDown);
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            
+            // 触摸事件
+            document.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
+            
+            // 键盘快捷键
+            document.addEventListener('keydown', handleKeyboard);
+        }
+        
+        // 设置新手引导事件
+        function setupTutorialEvents() {
+            // 帮助按钮
+            elements.helpButton.addEventListener('click', openTutorialModal);
+            
+            // 关闭引导按钮
+            elements.closeTutorialModalBtn.addEventListener('click', closeTutorialModal);
+            elements.startUsingBtn.addEventListener('click', closeTutorialModal);
+            
+            // 点击弹窗外部关闭
+            elements.tutorialModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeTutorialModal();
+                }
+            });
+            
+            // ESC键关闭引导
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && elements.tutorialModal.style.display !== 'none') {
+                    closeTutorialModal();
+                }
+            });
+            
+            // 重命名相关事件
+            elements.closeRenameModalBtn.addEventListener('click', closeRenameModal);
+            elements.cancelRenameBtn.addEventListener('click', closeRenameModal);
+            elements.confirmRenameBtn.addEventListener('click', confirmRenameAndDownload);
+            
+            // 点击重命名弹窗外部关闭
+            elements.renameModal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeRenameModal();
+                }
+            });
+            
+            // ESC键关闭重命名弹窗
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && elements.renameModal.style.display !== 'none') {
+                    closeRenameModal();
+                }
+            });
+        }
+        
+        // 打开新手引导
+        function openTutorialModal() {
+            elements.tutorialModal.style.display = 'flex';
+            setTimeout(() => {
+                elements.tutorialModal.classList.add('active');
+            }, 10);
+        }
+        
+        // 关闭新手引导
+        function closeTutorialModal() {
+            // 检查"不再显示"复选框
+            if (elements.dontShowAgain.checked) {
+                localStorage.setItem('hasShownTutorial', 'true');
+            }
+            
+            elements.tutorialModal.classList.remove('active');
+            setTimeout(() => {
+                elements.tutorialModal.style.display = 'none';
+            }, 300);
+        }
+        
+        // 打开重命名弹窗
+        function openRenameModal(slice) {
+            sliceToRename = slice;
+            
+            // 设置默认文件名
+            const defaultName = `切片_${slice.row}_${slice.col}`;
+            elements.renameInput.value = defaultName;
+            
+            // 聚焦到输入框
+            setTimeout(() => {
+                elements.renameInput.focus();
+                elements.renameInput.select();
+            }, 100);
+            
+            elements.renameModal.style.display = 'flex';
+            setTimeout(() => {
+                elements.renameModal.classList.add('active');
+            }, 10);
+        }
+        
+        // 关闭重命名弹窗
+        function closeRenameModal() {
+            sliceToRename = null;
+            elements.renameModal.classList.remove('active');
+            setTimeout(() => {
+                elements.renameModal.style.display = 'none';
+            }, 300);
+        }
+        
+        // 确认重命名并下载
+        function confirmRenameAndDownload() {
+            if (!sliceToRename) return;
+            
+            const newName = elements.renameInput.value.trim();
+            if (!newName) {
+                alert('请输入文件名！');
+                elements.renameInput.focus();
+                return;
+            }
+            
+            // 下载重命名后的切片
+            downloadRenamedSlice(newName);
+            closeRenameModal();
+        }
+        
+        // 下载重命名后的切片
+        function downloadRenamedSlice(fileName) {
+            if (!sliceToRename) return;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = sliceToRename.width;
+            canvas.height = sliceToRename.height;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.drawImage(
+                originalImage,
+                sliceToRename.sx, sliceToRename.sy, sliceToRename.swidth, sliceToRename.sheight,
+                0, 0, sliceToRename.width, sliceToRename.height
+            );
+            
+            canvas.toBlob(blob => {
+                // 确保文件名有.png扩展名
+                const finalFileName = fileName.endsWith('.png') ? fileName : `${fileName}.png`;
+                saveAs(blob, finalFileName);
+            }, 'image/png', 0.95);
+        }
+        
+        // 打开预设弹窗
+        function openPresetModal() {
+            elements.presetModal.style.display = 'flex';
+            // 使用setTimeout触发CSS动画
+            setTimeout(() => {
+                elements.presetModal.classList.add('active');
+            }, 10);
+        }
+        
+        // 关闭预设弹窗
+        function closePresetModal() {
+            elements.presetModal.classList.remove('active');
+            setTimeout(() => {
+                elements.presetModal.style.display = 'none';
+            }, 300);
+        }
+        
+        // 设置预设按钮
+        function setupPresetButtons() {
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 移除其他按钮的激活状态
+                    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+                    
+                    // 设置激活状态
+                    this.classList.add('active');
+                    
+                    // 应用预设
+                    const preset = this.dataset.preset;
+                    applyPreset(preset);
+                    
+                    // 关闭弹窗
+                    setTimeout(() => {
+                        closePresetModal();
+                    }, 500);
+                });
+            });
+        }
+        
+        // 应用预设
+        function applyPreset(preset) {
+            switch(preset) {
+                case '3x3': // 九宫格
+                    rowsConfig = [
+                        { id: 1, cols: 3, heightPercent: 33.33, colWidths: [33.33, 33.33, 33.34] },
+                        { id: 2, cols: 3, heightPercent: 33.33, colWidths: [33.33, 33.33, 33.34] },
+                        { id: 3, cols: 3, heightPercent: 33.34, colWidths: [33.33, 33.33, 33.34] }
+                    ];
+                    break;
+                    
+                case '2x2': // 四宫格
+                    rowsConfig = [
+                        { id: 1, cols: 2, heightPercent: 50, colWidths: [50, 50] },
+                        { id: 2, cols: 2, heightPercent: 50, colWidths: [50, 50] }
+                    ];
+                    break;
+                    
+                case '3-4-3': // 上3中4下3
+                    rowsConfig = [
+                        { id: 1, cols: 3, heightPercent: 30, colWidths: [33.33, 33.33, 33.34] },
+                        { id: 2, cols: 4, heightPercent: 40, colWidths: [25, 25, 25, 25] },
+                        { id: 3, cols: 3, heightPercent: 30, colWidths: [33.33, 33.33, 33.34] }
+                    ];
+                    break;
+                    
+                case '1-2-3': // 上1中2下3
+                    rowsConfig = [
+                        { id: 1, cols: 1, heightPercent: 25, colWidths: [100] },
+                        { id: 2, cols: 2, heightPercent: 35, colWidths: [50, 50] },
+                        { id: 3, cols: 3, heightPercent: 40, colWidths: [33.33, 33.33, 33.34] }
+                    ];
+                    break;
+                    
+                case '4x3': // 4×3网格
+                    rowsConfig = [
+                        { id: 1, cols: 4, heightPercent: 33.33, colWidths: [25, 25, 25, 25] },
+                        { id: 2, cols: 4, heightPercent: 33.33, colWidths: [25, 25, 25, 25] },
+                        { id: 3, cols: 4, heightPercent: 33.34, colWidths: [25, 25, 25, 25] }
+                    ];
+                    break;
+                    
+                case '2-3-4': // 上2中3下4
+                    rowsConfig = [
+                        { id: 1, cols: 2, heightPercent: 25, colWidths: [50, 50] },
+                        { id: 2, cols: 3, heightPercent: 35, colWidths: [33.33, 33.33, 33.34] },
+                        { id: 3, cols: 4, heightPercent: 40, colWidths: [25, 25, 25, 25] }
+                    ];
+                    break;
+            }
+            
+            updateRowsConfigUI();
+            
+            if (originalImage) {
+                createGridLines();
+                drawImageWithGrid();
+                updateSlicesPreview();
+            }
+        }
+        
+        // 处理图片上传
+        function handleImageUpload(file) {
+            if (!file.type.match('image.*')) {
+                alert('请选择图片文件！');
+                return;
+            }
+            
+            if (file.size > 10 * 1024 * 1024) {
+                alert('图片大小不能超过10MB！');
+                return;
+            }
+            
+            elements.fileName.textContent = `📸 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                originalImage = new Image();
+                originalImage.onload = function() {
+                    setupCanvas();
+                    updateImageInfo();
+                    showUIElements();
+                    createGridLines();
+                    drawImageWithGrid();
+                    updateSlicesPreview();
+                };
+                originalImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 设置画布
+        function setupCanvas() {
+            const container = elements.canvasContainer;
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            const imgAspect = originalImage.width / originalImage.height;
+            const containerAspect = containerWidth / containerHeight;
+            
+            let canvasWidth, canvasHeight;
+            
+            if (imgAspect > containerAspect) {
+                canvasWidth = containerWidth;
+                canvasHeight = containerWidth / imgAspect;
+            } else {
+                canvasHeight = containerHeight;
+                canvasWidth = containerHeight * imgAspect;
+            }
+            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            // 更新容器大小以匹配canvas
+            canvas.style.width = `${canvasWidth}px`;
+            canvas.style.height = `${canvasHeight}px`;
+        }
+        
+        // 显示UI元素
+        function showUIElements() {
+            elements.toolButtons.style.display = 'flex';
+            elements.slicesPreview.style.display = 'flex';
+            elements.imageInfo.style.display = 'block';
+            elements.selectedSlicePanel.style.display = 'block';
+        }
+        
+        // 更新图片信息
+        function updateImageInfo() {
+            elements.imageDimensions.textContent = `${originalImage.width} × ${originalImage.height} 像素`;
+            updateGridInfo();
+        }
+        
+        // 更新网格信息
+        function updateGridInfo() {
+            const totalSlices = rowsConfig.reduce((sum, row) => sum + row.cols, 0);
+            const rowInfo = rowsConfig.map(row => row.cols).join('-');
+            
+            elements.gridLayout.textContent = `${rowsConfig.length}行 (${rowInfo}列)`;
+            elements.sliceCount.textContent = totalSlices;
+            elements.sliceCountBadge.textContent = `${totalSlices} 个切片`;
+            elements.previewCount.textContent = totalSlices;
+        }
+        
+        // 添加行配置 - 修复：平均分配行高
+        function addRowConfig() {
+            const newRowId = rowsConfig.length > 0 ? Math.max(...rowsConfig.map(r => r.id)) + 1 : 1;
+            const defaultCols = 3;
+            const totalRows = rowsConfig.length + 1;
+            
+            // 计算平均高度
+            const averageHeight = 100 / totalRows;
+            
+            // 重置所有行的高度为平均值
+            rowsConfig.forEach(row => {
+                row.heightPercent = averageHeight;
+            });
+            
+            // 添加新行
+            rowsConfig.push({
+                id: newRowId,
+                cols: defaultCols,
+                heightPercent: averageHeight,
+                colWidths: Array(defaultCols).fill(100 / defaultCols)
+            });
+            
+            updateRowsConfigUI();
+        }
+        
+        // 更新行配置UI
+        function updateRowsConfigUI() {
+            elements.rowsConfigContainer.innerHTML = '';
+            
+            if (rowsConfig.length === 0) {
+                elements.rowsConfigContainer.innerHTML = `
+                    <div class="empty-state" style="padding: 20px 0;">
+                        <div class="empty-icon">📐</div>
+                        <p class="empty-text">点击"添加行"开始配置异形切割</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            rowsConfig.forEach((row, index) => {
+                const rowItem = document.createElement('div');
+                rowItem.className = 'row-config-item';
+                rowItem.dataset.index = index;
+                
+                // 行头部
+                const rowHeader = document.createElement('div');
+                rowHeader.className = 'row-header';
+                
+                const rowTitle = document.createElement('div');
+                rowTitle.className = 'row-title';
+                rowTitle.innerHTML = `
+                    <span class="row-number">${index + 1}</span>
+                    <span>第 ${index + 1} 行</span>
+                `;
+                
+                const rowControls = document.createElement('div');
+                rowControls.className = 'row-controls';
+                
+                // 上移按钮
+                if (index > 0) {
+                    const moveUpBtn = document.createElement('button');
+                    moveUpBtn.className = 'row-btn';
+                    moveUpBtn.innerHTML = '↑ 上移';
+                    moveUpBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        moveRow(index, 'up');
+                    });
+                    rowControls.appendChild(moveUpBtn);
+                }
+                
+                // 下移按钮
+                if (index < rowsConfig.length - 1) {
+                    const moveDownBtn = document.createElement('button');
+                    moveDownBtn.className = 'row-btn';
+                    moveDownBtn.innerHTML = '↓ 下移';
+                    moveDownBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        moveRow(index, 'down');
+                    });
+                    rowControls.appendChild(moveDownBtn);
+                }
+                
+                // 删除按钮
+                if (rowsConfig.length > 1) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'row-btn delete';
+                    deleteBtn.innerHTML = '🗑️ 删除';
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteRow(index);
+                    });
+                    rowControls.appendChild(deleteBtn);
+                }
+                
+                rowHeader.appendChild(rowTitle);
+                rowHeader.appendChild(rowControls);
+                rowItem.appendChild(rowHeader);
+                
+                // 行内容
+                const rowContent = document.createElement('div');
+                rowContent.className = 'row-content';
+                
+                // 列数设置
+                const colsGroup = document.createElement('div');
+                colsGroup.className = 'control-group';
+                
+                const colsLabel = document.createElement('label');
+                colsLabel.className = 'control-label';
+                colsLabel.textContent = '列数';
+                colsLabel.htmlFor = `row-${index}-cols`;
+                
+                const colsInput = document.createElement('input');
+                colsInput.type = 'number';
+                colsInput.id = `row-${index}-cols`;
+                colsInput.className = 'number-input';
+                colsInput.min = 1;
+                colsInput.max = 10;
+                colsInput.value = row.cols;
+                colsInput.dataset.index = index;
+                colsInput.dataset.type = 'cols';
+                
+                colsInput.addEventListener('change', function() {
+                    const rowIndex = parseInt(this.dataset.index);
+                    const newCols = parseInt(this.value);
+                    
+                    if (newCols < 1 || newCols > 10) {
+                        alert('列数必须在1-10之间');
+                        this.value = rowsConfig[rowIndex].cols;
+                        return;
+                    }
+                    
+                    rowsConfig[rowIndex].cols = newCols;
+                    // 重新计算列宽（均匀分布）
+                    rowsConfig[rowIndex].colWidths = Array(newCols).fill(100 / newCols);
+                    
+                    updateRowsConfigUI();
+                    if (originalImage) {
+                        createGridLines();
+                        drawImageWithGrid();
+                        updateSlicesPreview();
+                    }
+                });
+                
+                colsGroup.appendChild(colsLabel);
+                colsGroup.appendChild(colsInput);
+                rowContent.appendChild(colsGroup);
+                
+                // 行高设置
+                const heightGroup = document.createElement('div');
+                heightGroup.className = 'control-group';
+                
+                const heightLabel = document.createElement('label');
+                heightLabel.className = 'control-label';
+                heightLabel.textContent = '行高 (%)';
+                heightLabel.htmlFor = `row-${index}-height`;
+                
+                const heightInput = document.createElement('input');
+                heightInput.type = 'number';
+                heightInput.id = `row-${index}-height`;
+                heightInput.className = 'number-input';
+                heightInput.min = 5;
+                heightInput.max = 95;
+                heightInput.step = 1;
+                heightInput.value = Math.round(row.heightPercent);
+                heightInput.dataset.index = index;
+                heightInput.dataset.type = 'height';
+                
+                heightInput.addEventListener('change', function() {
+                    const rowIndex = parseInt(this.dataset.index);
+                    const newHeight = parseInt(this.value);
+                    
+                    if (newHeight < 5 || newHeight > 95) {
+                        alert('行高必须在5%-95%之间');
+                        this.value = Math.round(rowsConfig[rowIndex].heightPercent);
+                        return;
+                    }
+                    
+                    rowsConfig[rowIndex].heightPercent = newHeight;
+                    
+                    // 调整其他行的高度，使总和为100%
+                    adjustRowHeights(rowIndex);
+                    
+                    updateRowsConfigUI();
+                    if (originalImage) {
+                        createGridLines();
+                        drawImageWithGrid();
+                        updateSlicesPreview();
+                    }
+                });
+                
+                heightGroup.appendChild(heightLabel);
+                heightGroup.appendChild(heightInput);
+                rowContent.appendChild(heightGroup);
+                
+                rowItem.appendChild(rowContent);
+                
+                // 列宽滑块（当列数>1时显示）
+                if (row.cols > 1) {
+                    const colWidthsContainer = document.createElement('div');
+                    colWidthsContainer.style.gridColumn = '1 / -1';
+                    colWidthsContainer.style.marginTop = '10px';
+                    
+                    const colWidthsLabel = document.createElement('div');
+                    colWidthsLabel.className = 'control-label';
+                    colWidthsLabel.textContent = '列宽调整';
+                    colWidthsContainer.appendChild(colWidthsLabel);
+                    
+                    // 为每列创建一个滑块
+                    for (let col = 0; col < row.cols - 1; col++) {
+                        const sliderContainer = document.createElement('div');
+                        sliderContainer.className = 'slider-container';
+                        
+                        const sliderHeader = document.createElement('div');
+                        sliderHeader.className = 'slider-header';
+                        
+                        const sliderLabel = document.createElement('span');
+                        sliderLabel.className = 'slider-label';
+                        sliderLabel.textContent = `列 ${col + 1} 和 ${col + 2}`;
+                        
+                        const sliderValue = document.createElement('span');
+                        sliderValue.className = 'slider-value';
+                        const currentPosition = row.colWidths.slice(0, col + 1).reduce((a, b) => a + b, 0);
+                        sliderValue.textContent = `${Math.round(currentPosition)}%`;
+                        
+                        sliderHeader.appendChild(sliderLabel);
+                        sliderHeader.appendChild(sliderValue);
+                        
+                        const slider = document.createElement('input');
+                        slider.type = 'range';
+                        slider.className = 'custom-slider';
+                        slider.min = 1;
+                        slider.max = 99;
+                        slider.step = 1;
+                        slider.value = Math.round(currentPosition);
+                        slider.dataset.rowIndex = index;
+                        slider.dataset.colIndex = col;
+                        
+                        slider.addEventListener('input', function() {
+                            const rowIndex = parseInt(this.dataset.rowIndex);
+                            const colIndex = parseInt(this.dataset.colIndex);
+                            const value = parseInt(this.value);
+                            
+                            // 更新列宽
+                            updateColumnWidths(rowIndex, colIndex, value);
+                            
+                            sliderValue.textContent = `${value}%`;
+                            
+                            if (originalImage) {
+                                createGridLines();
+                                drawImageWithGrid();
+                                updateSlicesPreview();
+                            }
+                        });
+                        
+                        sliderContainer.appendChild(sliderHeader);
+                        sliderContainer.appendChild(slider);
+                        colWidthsContainer.appendChild(sliderContainer);
+                    }
+                    
+                    rowItem.appendChild(colWidthsContainer);
+                }
+                
+                elements.rowsConfigContainer.appendChild(rowItem);
+            });
+            
+            updateGridInfo();
+        }
+        
+        // 移动行
+        function moveRow(index, direction) {
+            if (direction === 'up' && index > 0) {
+                [rowsConfig[index], rowsConfig[index - 1]] = [rowsConfig[index - 1], rowsConfig[index]];
+            } else if (direction === 'down' && index < rowsConfig.length - 1) {
+                [rowsConfig[index], rowsConfig[index + 1]] = [rowsConfig[index + 1], rowsConfig[index]];
+            }
+            
+            updateRowsConfigUI();
+            
+            if (originalImage) {
+                createGridLines();
+                drawImageWithGrid();
+                updateSlicesPreview();
+            }
+        }
+        
+        // 删除行 - 修复：删除后重新平均分配高度
+        function deleteRow(index) {
+            if (rowsConfig.length <= 1) {
+                alert('至少需要保留一行！');
+                return;
+            }
+            
+            if (!confirm('确定要删除这一行吗？')) return;
+            
+            rowsConfig.splice(index, 1);
+            
+            // 重新平均分配高度
+            const averageHeight = 100 / rowsConfig.length;
+            rowsConfig.forEach(row => {
+                row.heightPercent = averageHeight;
+            });
+            
+            updateRowsConfigUI();
+            
+            if (originalImage) {
+                createGridLines();
+                drawImageWithGrid();
+                updateSlicesPreview();
+            }
+        }
+        
+        // 调整行高度，使总和为100%
+        function adjustRowHeights(changedIndex) {
+            const totalHeight = rowsConfig.reduce((sum, row) => sum + row.heightPercent, 0);
+            
+            if (totalHeight !== 100) {
+                const diff = totalHeight - 100;
+                const remainingRows = rowsConfig.filter((_, i) => i !== changedIndex);
+                
+                if (remainingRows.length > 0) {
+                    const adjustPerRow = diff / remainingRows.length;
+                    
+                    rowsConfig.forEach((row, i) => {
+                        if (i !== changedIndex) {
+                            row.heightPercent -= adjustPerRow;
+                            // 确保高度在合理范围内
+                            row.heightPercent = Math.max(5, Math.min(95, row.heightPercent));
+                        }
+                    });
+                    
+                    // 递归调整直到总和为100%
+                    adjustRowHeights(changedIndex);
+                }
+            }
+        }
+        
+        // 更新列宽
+        function updateColumnWidths(rowIndex, colIndex, positionPercent) {
+            const row = rowsConfig[rowIndex];
+            
+            // 计算当前累计宽度
+            let currentCumulative = 0;
+            for (let i = 0; i <= colIndex; i++) {
+                currentCumulative += row.colWidths[i];
+            }
+            
+            // 计算差异
+            const diff = positionPercent - currentCumulative;
+            
+            if (diff !== 0) {
+                // 调整相关列的宽度
+                row.colWidths[colIndex] += diff;
+                row.colWidths[colIndex + 1] -= diff;
+                
+                // 确保宽度在合理范围内（每列至少5%）
+                if (row.colWidths[colIndex] < 5) {
+                    const adjust = 5 - row.colWidths[colIndex];
+                    row.colWidths[colIndex] = 5;
+                    row.colWidths[colIndex + 1] -= adjust;
+                }
+                if (row.colWidths[colIndex + 1] < 5) {
+                    const adjust = 5 - row.colWidths[colIndex + 1];
+                    row.colWidths[colIndex + 1] = 5;
+                    row.colWidths[colIndex] -= adjust;
+                }
+            }
+        }
+        
+        // 创建网格线
+        function createGridLines() {
+            // 移除旧网格线
+            gridLines.forEach(line => {
+                if (line.element && line.element.parentNode) {
+                    line.element.parentNode.removeChild(line.element);
+                }
+            });
+            gridLines = [];
+            
+            if (!originalImage || rowsConfig.length === 0) return;
+            
+            const canvasRect = canvas.getBoundingClientRect();
+            const containerRect = elements.canvasContainer.getBoundingClientRect();
+            
+            // 创建水平网格线（行间分割线）
+            let cumulativeHeight = 0;
+            for (let i = 0; i < rowsConfig.length - 1; i++) {
+                cumulativeHeight += rowsConfig[i].heightPercent;
+                
+                const line = createLineElement('horizontal', cumulativeHeight, i, 'row');
+                gridLines.push({
+                    element: line,
+                    type: 'row',
+                    index: i,
+                    position: cumulativeHeight
+                });
+            }
+            
+            // 创建每行的垂直网格线
+            rowsConfig.forEach((row, rowIndex) => {
+                let cumulativeWidth = 0;
+                
+                for (let col = 0; col < row.cols - 1; col++) {
+                    cumulativeWidth += row.colWidths[col];
+                    
+                    const line = createLineElement('vertical', cumulativeWidth, rowIndex, 'col', col);
+                    gridLines.push({
+                        element: line,
+                        type: 'col',
+                        rowIndex: rowIndex,
+                        colIndex: col,
+                        position: cumulativeWidth
+                    });
+                }
+            });
+        }
+        
+        // 创建网格线元素
+        function createLineElement(type, positionPercent, index, lineType, colIndex = null) {
+            const line = document.createElement('div');
+            line.className = `grid-line ${type}`;
+            line.dataset.type = lineType;
+            line.dataset.index = index;
+            
+            if (colIndex !== null) {
+                line.dataset.colIndex = colIndex;
+            }
+            
+            // 添加把手
+            const handle = document.createElement('div');
+            handle.className = 'grid-line-handle';
+            if (lineType === 'row') {
+                handle.textContent = '↕';
+            } else {
+                handle.textContent = '↔';
+            }
+            line.appendChild(handle);
+            
+            // 计算位置
+            const canvasRect = canvas.getBoundingClientRect();
+            const containerRect = elements.canvasContainer.getBoundingClientRect();
+            const offsetX = canvasRect.left - containerRect.left;
+            const offsetY = canvasRect.top - containerRect.top;
+            
+            if (type === 'horizontal') {
+                const positionInCanvas = canvasRect.height * positionPercent / 100;
+                const positionInContainer = offsetY + positionInCanvas;
+                line.style.top = `${positionInContainer}px`;
+            } else {
+                const positionInCanvas = canvasRect.width * positionPercent / 100;
+                const positionInContainer = offsetX + positionInCanvas;
+                line.style.left = `${positionInContainer}px`;
+            }
+            
+            // 添加标签
+            const label = document.createElement('div');
+            label.className = 'line-label';
+            label.textContent = `${Math.round(positionPercent)}%`;
+            line.appendChild(label);
+            
+            // 添加双击事件删除线
+            line.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                if (lineType === 'row' && rowsConfig.length > 1) {
+                    deleteRow(index);
+                } else if (lineType === 'col') {
+                    const row = rowsConfig[index];
+                    if (row.cols > 1) {
+                        // 删除列
+                        row.cols -= 1;
+                        row.colWidths.splice(colIndex, 1);
+                        updateRowsConfigUI();
+                        if (originalImage) {
+                            createGridLines();
+                            drawImageWithGrid();
+                            updateSlicesPreview();
+                        }
+                    }
+                }
+            });
+            
+            elements.canvasContainer.appendChild(line);
+            return line;
+        }
+        
+        // 绘制图片和网格
+        function drawImageWithGrid() {
+            if (!originalImage) return;
+            
+            // 清除Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制图片
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+            
+            // 绘制参考线
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            
+            // 绘制水平参考线
+            let cumulativeHeight = 0;
+            for (let i = 0; i < rowsConfig.length - 1; i++) {
+                cumulativeHeight += rowsConfig[i].heightPercent;
+                const y = (cumulativeHeight / 100) * canvas.height;
+                
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // 绘制每行的垂直参考线
+            let rowTop = 0;
+            rowsConfig.forEach(row => {
+                const rowHeight = (row.heightPercent / 100) * canvas.height;
+                let cumulativeWidth = 0;
+                
+                for (let col = 0; col < row.cols - 1; col++) {
+                    cumulativeWidth += row.colWidths[col];
+                    const x = (cumulativeWidth / 100) * canvas.width;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x, rowTop);
+                    ctx.lineTo(x, rowTop + rowHeight);
+                    ctx.stroke();
+                }
+                
+                rowTop += rowHeight;
+            });
+            
+            ctx.setLineDash([]);
+        }
+        
+        // 鼠标按下事件
+        function handleMouseDown(e) {
+            const target = e.target;
+            
+            // 检查是否点击了网格线
+            if (target.classList.contains('grid-line')) {
+                isDragging = true;
+                activeLine = target;
+                
+                // 记录起始位置
+                dragStartPos.x = e.clientX;
+                dragStartPos.y = e.clientY;
+                
+                // 添加拖拽样式
+                target.classList.add('dragging');
+                
+                // 阻止默认行为和事件冒泡
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // 显示线指示器
+                showLineIndicator(target);
+                
+                return true;
+            }
+            
+            return false;
+        }
+        
+        // 鼠标移动事件
+        function handleMouseMove(e) {
+            if (!isDragging || !activeLine) return;
+            
+            const canvasRect = canvas.getBoundingClientRect();
+            const containerRect = elements.canvasContainer.getBoundingClientRect();
+            
+            // 计算鼠标移动距离
+            const deltaX = e.clientX - dragStartPos.x;
+            const deltaY = e.clientY - dragStartPos.y;
+            
+            // 获取线类型和索引
+            const lineType = activeLine.dataset.type;
+            const index = parseInt(activeLine.dataset.index);
+            const colIndex = activeLine.dataset.colIndex ? parseInt(activeLine.dataset.colIndex) : null;
+            
+            if (lineType === 'row') {
+                // 水平线 - 调整行高
+                const deltaPercent = (deltaY / canvasRect.height) * 100;
+                
+                // 获取当前行的位置
+                let currentPosition = 0;
+                for (let i = 0; i <= index; i++) {
+                    currentPosition += rowsConfig[i].heightPercent;
+                }
+                
+                // 计算新位置
+                let newPosition = currentPosition + deltaPercent;
+                
+                // 限制位置范围
+                const minPosition = index > 0 ? 
+                    rowsConfig.slice(0, index).reduce((sum, row) => sum + row.heightPercent, 0) + 5 : 5;
+                const maxPosition = index < rowsConfig.length - 2 ?
+                    rowsConfig.slice(0, index + 2).reduce((sum, row) => sum + row.heightPercent, 0) - 5 : 95;
+                
+                newPosition = Math.max(minPosition, Math.min(maxPosition, newPosition));
+                
+                // 更新行高
+                const diff = newPosition - currentPosition;
+                rowsConfig[index].heightPercent += diff;
+                rowsConfig[index + 1].heightPercent -= diff;
+                
+                // 确保高度合理
+                rowsConfig[index].heightPercent = Math.max(5, Math.min(95, rowsConfig[index].heightPercent));
+                rowsConfig[index + 1].heightPercent = Math.max(5, Math.min(95, rowsConfig[index + 1].heightPercent));
+                
+                // 更新起始位置
+                dragStartPos.y = e.clientY;
+                
+            } else if (lineType === 'col' && colIndex !== null) {
+                // 垂直线 - 调整列宽
+                const deltaPercent = (deltaX / canvasRect.width) * 100;
+                
+                // 获取当前列的位置
+                const row = rowsConfig[index];
+                let currentPosition = 0;
+                for (let i = 0; i <= colIndex; i++) {
+                    currentPosition += row.colWidths[i];
+                }
+                
+                // 计算新位置
+                let newPosition = currentPosition + deltaPercent;
+                
+                // 限制位置范围
+                const minPosition = colIndex > 0 ? 
+                    row.colWidths.slice(0, colIndex).reduce((sum, width) => sum + width, 0) + 5 : 5;
+                const maxPosition = colIndex < row.cols - 2 ? 
+                    row.colWidths.slice(0, colIndex + 2).reduce((sum, width) => sum + width, 0) - 5 : 95;
+                
+                newPosition = Math.max(minPosition, Math.min(maxPosition, newPosition));
+                
+                // 更新列宽
+                const diff = newPosition - currentPosition;
+                updateColumnWidths(index, colIndex, newPosition);
+                
+                // 更新起始位置
+                dragStartPos.x = e.clientX;
+            }
+            
+            // 更新UI和预览
+            updateRowsConfigUI();
+            createGridLines();
+            drawImageWithGrid();
+            updateSlicesPreview();
+            
+            // 更新线指示器
+            updateLineIndicator();
+            
+            e.preventDefault();
+        }
+        
+        // 鼠标释放事件
+        function handleMouseUp() {
+            if (isDragging && activeLine) {
+                activeLine.classList.remove('dragging');
+                hideLineIndicator();
+            }
+            
+            isDragging = false;
+            activeLine = null;
+        }
+        
+        // 触摸开始事件
+        function handleTouchStart(e) {
+            if (e.touches.length !== 1) return;
+            
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            
+            if (target && target.classList.contains('grid-line')) {
+                // 模拟鼠标事件
+                const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    bubbles: true
+                });
+                target.dispatchEvent(mouseEvent);
+                e.preventDefault();
+            }
+        }
+        
+        // 触摸移动事件
+        function handleTouchMove(e) {
+            if (e.touches.length !== 1 || !isDragging) return;
+            
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+                bubbles: true
+            });
+            document.dispatchEvent(mouseEvent);
+            e.preventDefault();
+        }
+        
+        // 触摸结束事件
+        function handleTouchEnd() {
+            handleMouseUp();
+        }
+        
+        // 显示线指示器
+        function showLineIndicator(line) {
+            const rect = line.getBoundingClientRect();
+            const containerRect = elements.canvasContainer.getBoundingClientRect();
+            
+            lineIndicator.style.left = `${rect.left - containerRect.left + rect.width/2}px`;
+            lineIndicator.style.top = `${rect.top - containerRect.top + rect.height/2}px`;
+            lineIndicator.classList.add('active');
+        }
+        
+        // 更新线指示器
+        function updateLineIndicator() {
+            if (!activeLine) return;
+            
+            const rect = activeLine.getBoundingClientRect();
+            const containerRect = elements.canvasContainer.getBoundingClientRect();
+            
+            lineIndicator.style.left = `${rect.left - containerRect.left + rect.width/2}px`;
+            lineIndicator.style.top = `${rect.top - containerRect.top + rect.height/2}px`;
+        }
+        
+        // 隐藏线指示器
+        function hideLineIndicator() {
+            lineIndicator.classList.remove('active');
+        }
+        
+        // 应用均匀网格
+        function applyUniformGrid() {
+            const rows = rowsConfig.length;
+            const cols = prompt(`请输入每行列数 (1-10):`, '3');
+            
+            if (!cols) return;
+            
+            const colCount = parseInt(cols);
+            if (isNaN(colCount) || colCount < 1 || colCount > 10) {
+                alert('列数必须在1-10之间');
+                return;
+            }
+            
+            // 均匀分配
+            rowsConfig.forEach(row => {
+                row.cols = colCount;
+                row.heightPercent = 100 / rows;
+                row.colWidths = Array(colCount).fill(100 / colCount);
+            });
+            
+            updateRowsConfigUI();
+            
+            if (originalImage) {
+                createGridLines();
+                drawImageWithGrid();
+                updateSlicesPreview();
+            }
+        }
+        
+        // 清除所有线
+        function clearAllLines() {
+            if (confirm('确定要清除所有切割线吗？图片将保留完整状态。')) {
+                rowsConfig = [
+                    { id: 1, cols: 1, heightPercent: 100, colWidths: [100] }
+                ];
+                
+                updateRowsConfigUI();
+                
+                if (originalImage) {
+                    createGridLines();
+                    drawImageWithGrid();
+                    updateSlicesPreview();
+                }
+            }
+        }
+        
+        // 更新切片预览
+        function updateSlicesPreview() {
+            if (!originalImage || rowsConfig.length === 0) {
+                elements.slicesGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🖼️</div>
+                        <p class="empty-text">请上传图片并设置切割布局</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const slicePositions = calculateSlicePositions();
+            
+            if (slicePositions.length === 0) {
+                elements.slicesGrid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🖼️</div>
+                        <p class="empty-text">请设置切割布局</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            elements.slicesGrid.innerHTML = '';
+            
+            // 限制预览数量，避免性能问题
+            const maxPreview = 30;
+            const positionsToShow = slicePositions.slice(0, maxPreview);
+            
+            positionsToShow.forEach((pos, index) => {
+                const sliceCard = document.createElement('div');
+                sliceCard.className = 'slice-card';
+                sliceCard.dataset.index = index;
+                sliceCard.dataset.positionIndex = index;
+                sliceCard.title = `切片 ${pos.row}-${pos.col} (${Math.round(pos.width)}×${Math.round(pos.height)}像素)`;
+                
+                // 创建切片编号徽章
+                const badge = document.createElement('div');
+                badge.className = 'slice-badge';
+                badge.textContent = `${pos.row}-${pos.col}`;
+                
+                // 创建canvas绘制切片
+                const sliceCanvas = document.createElement('canvas');
+                sliceCanvas.width = Math.min(200, pos.width);
+                sliceCanvas.height = Math.min(200, pos.height);
+                const sliceCtx = sliceCanvas.getContext('2d');
+                
+                // 绘制切片（按比例缩放以提升性能）
+                const scale = Math.min(200 / pos.width, 200 / pos.height, 1);
+                sliceCtx.drawImage(
+                    originalImage,
+                    pos.sx, pos.sy, pos.swidth, pos.sheight,
+                    0, 0, pos.width * scale, pos.height * scale
+                );
+                
+                // 创建图片元素
+                const img = new Image();
+                img.onload = function() {
+                    // 更新卡片内容
+                    sliceCard.innerHTML = '';
+                    sliceCard.appendChild(badge);
+                    sliceCard.appendChild(img);
+                    
+                    // 如果是选中的切片，添加选中样式
+                    if (selectedSlice && selectedSlice.row === pos.row && selectedSlice.col === pos.col) {
+                        sliceCard.classList.add('selected');
+                    }
+                };
+                img.src = sliceCanvas.toDataURL('image/png');
+                img.alt = `切片 ${pos.row}-${pos.col}`;
+                
+                // 添加点击事件选择切片
+                sliceCard.addEventListener('click', () => {
+                    selectSlice(pos, sliceCard);
+                });
+                
+                elements.slicesGrid.appendChild(sliceCard);
+            });
+            
+            // 如果切片数量超过预览限制，显示提示
+            if (slicePositions.length > maxPreview) {
+                const warning = document.createElement('div');
+                warning.style.gridColumn = '1 / -1';
+                warning.style.textAlign = 'center';
+                warning.style.padding = '10px';
+                warning.style.color = '#64748b';
+                warning.style.fontSize = '0.9rem';
+                warning.innerHTML = `共 ${slicePositions.length} 个切片，显示前 ${maxPreview} 个预览`;
+                elements.slicesGrid.appendChild(warning);
+            }
+        }
+        
+        // 选择切片
+        function selectSlice(slice, sliceCard) {
+            // 移除之前选中的样式
+            document.querySelectorAll('.slice-card.selected').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 添加当前选中样式
+            sliceCard.classList.add('selected');
+            selectedSlice = slice;
+            
+            // 更新选中切片信息面板
+            updateSelectedSliceInfo(slice);
+        }
+        
+        // 更新选中切片信息 - 修复：使用btn-rename类
+        function updateSelectedSliceInfo(slice) {
+            elements.selectedSliceInfo.innerHTML = `
+                <div class="selected-slice-info">
+                    <h4>🎯 选中切片 ${slice.row}-${slice.col}</h4>
+                    <div class="slice-details">
+                        <div class="slice-detail-item">
+                            <span class="slice-detail-label">尺寸</span>
+                            <span class="slice-detail-value">${Math.round(slice.width)}×${Math.round(slice.height)}像素</span>
+                        </div>
+                        <div class="slice-detail-item">
+                            <span class="slice-detail-label">位置</span>
+                            <span class="slice-detail-value">X:${Math.round(slice.sx)} Y:${Math.round(slice.sy)}</span>
+                        </div>
+                    </div>
+                    <div class="dual-buttons">
+                        <button class="btn btn-secondary" id="downloadSelectedSliceBtn">
+                            <span class="btn-icon">⬇️</span> 下载此切片
+                        </button>
+                        <button class="btn btn-rename" id="renameSelectedSliceBtn">
+                            <span class="btn-icon">✏️</span> 重命名下载
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // 为下载此切片按钮添加事件
+            document.getElementById('downloadSelectedSliceBtn').addEventListener('click', () => {
+                downloadSelectedSlice();
+            });
+            
+            // 为重命名按钮添加事件
+            document.getElementById('renameSelectedSliceBtn').addEventListener('click', () => {
+                openRenameModal(slice);
+            });
+        }
+        
+        // 计算切片位置
+        function calculateSlicePositions() {
+            if (!originalImage || rowsConfig.length === 0) return [];
+            
+            const positions = [];
+            
+            // 计算每行的累计高度
+            let cumulativeHeightPercent = 0;
+            
+            for (let rowIndex = 0; rowIndex < rowsConfig.length; rowIndex++) {
+                const row = rowsConfig[rowIndex];
+                
+                // 计算该行的顶部和底部位置（百分比）
+                const rowTopPercent = cumulativeHeightPercent;
+                const rowBottomPercent = cumulativeHeightPercent + row.heightPercent;
+                
+                // 计算该行的顶部和底部位置（像素）
+                const rowTopPx = originalImage.height * rowTopPercent / 100;
+                const rowBottomPx = originalImage.height * rowBottomPercent / 100;
+                const rowHeightPx = rowBottomPx - rowTopPx;
+                
+                // 将该行的列线转换为像素位置
+                const colLinesPx = [0];
+                let cumulativeWidth = 0;
+                for (let i = 0; i < row.cols - 1; i++) {
+                    cumulativeWidth += row.colWidths[i];
+                    colLinesPx.push(originalImage.width * cumulativeWidth / 100);
+                }
+                colLinesPx.push(originalImage.width);
+                
+                // 生成该行的所有切片
+                for (let colIndex = 0; colIndex < row.cols; colIndex++) {
+                    positions.push({
+                        sx: colLinesPx[colIndex], // 源X坐标
+                        sy: rowTopPx, // 源Y坐标
+                        swidth: colLinesPx[colIndex + 1] - colLinesPx[colIndex], // 源宽度
+                        sheight: rowHeightPx, // 源高度
+                        width: colLinesPx[colIndex + 1] - colLinesPx[colIndex], // 切片宽度
+                        height: rowHeightPx, // 切片高度
+                        row: rowIndex + 1,
+                        col: colIndex + 1
+                    });
+                }
+                
+                cumulativeHeightPercent += row.heightPercent;
+            }
+            
+            return positions;
+        }
+        
+        // 下载所有切片
+        async function downloadAllSlices() {
+            if (!originalImage) {
+                alert('请先上传图片！');
+                return;
+            }
+            
+            if (rowsConfig.length === 0) {
+                alert('请设置切割布局！');
+                return;
+            }
+            
+            elements.loading.style.display = 'flex';
+            
+            try {
+                const zip = new JSZip();
+                const folder = zip.folder('图片切片');
+                
+                const slicePositions = calculateSlicePositions();
+                
+                for (let i = 0; i < slicePositions.length; i++) {
+                    const slice = slicePositions[i];
+                    const canvas = document.createElement('canvas');
+                    canvas.width = slice.width;
+                    canvas.height = slice.height;
+                    const ctx = canvas.getContext('2d');
+                    
+                    ctx.drawImage(
+                        originalImage,
+                        slice.sx, slice.sy, slice.swidth, slice.sheight,
+                        0, 0, slice.width, slice.height
+                    );
+                    
+                    const blob = await new Promise(resolve => {
+                        canvas.toBlob(resolve, 'image/png', 0.95);
+                    });
+                    
+                    folder.file(`切片_${slice.row}_${slice.col}.png`, blob);
+                }
+                
+                const content = await zip.generateAsync({ type: 'blob' });
+                const rowInfo = rowsConfig.map(row => row.cols).join('-');
+                const fileName = `图片切片_${rowsConfig.length}行(${rowInfo}列)_${new Date().getTime()}.zip`;
+                
+                saveAs(content, fileName);
+                
+            } catch (error) {
+                console.error('下载失败:', error);
+                alert('下载失败，请重试！');
+            } finally {
+                elements.loading.style.display = 'none';
+            }
+        }
+        
+        // 下载选中切片
+        function downloadSelectedSlice() {
+            if (!selectedSlice) {
+                alert('请先选择一个切片！');
+                return;
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = selectedSlice.width;
+            canvas.height = selectedSlice.height;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.drawImage(
+                originalImage,
+                selectedSlice.sx, selectedSlice.sy, selectedSlice.swidth, selectedSlice.sheight,
+                0, 0, selectedSlice.width, selectedSlice.height
+            );
+            
+            canvas.toBlob(blob => {
+                const fileName = `切片_${selectedSlice.row}_${selectedSlice.col}.png`;
+                saveAs(blob, fileName);
+            }, 'image/png', 0.95);
+        }
+        
+        // 重置所有设置
+        function resetAll() {
+            if (confirm('确定要重置所有设置吗？图片将保留，但所有切割线将被清除。')) {
+                initializeDefaultConfig();
+                
+                // 清除预设按钮的选中状态
+                document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+                
+                // 清除选中的切片
+                selectedSlice = null;
+                elements.selectedSlicePanel.style.display = 'block';
+                elements.selectedSliceInfo.innerHTML = `
+                    <div class="empty-state" style="padding: 10px 0;">
+                        <div class="empty-icon">🎯</div>
+                        <p class="empty-text">点击左侧切片预览中的切片进行选择</p>
+                    </div>
+                `;
+                
+                updateRowsConfigUI();
+                
+                if (originalImage) {
+                    createGridLines();
+                    drawImageWithGrid();
+                    updateSlicesPreview();
+                }
+            }
+        }
+        
+        // 键盘快捷键
+        function handleKeyboard(e) {
+            // Esc键取消拖拽
+            if (e.key === 'Escape' && isDragging) {
+                handleMouseUp();
+            }
+            
+            // 删除键 - 删除选中的网格线
+            if (e.key === 'Delete' && activeLine) {
+                // 这里可以添加删除网格线的逻辑
+            }
+        }
+    </script>
+</body>
+</html>
